@@ -6,29 +6,43 @@ module fpga_whack_a_mole(CLOCK_50, SW, KEY, LEDR, HEX0, HEX1, HEX2, HEX3);
     input [3:0] SW; // SW[0], SW[1] = Speed selection | SW[2] = paralell_load | SW[3] = clear_b
     input CLOCK_50;
 	 
-	 input [1:0] KEY;
+	input [1:0] KEY;
     output [9:0] LEDR;
     output [6:0] HEX0, HEX1, HEX2, HEX3;
 
-    wire [27:0] rd0_out;
+    wire [27:0] rd_out_old = 26'b10111110101111000010000000 - 1'b1;
+    wire [27:0] rd_out = rd_out_old;
+    wire par_load = 1'b0;
+
     reg update_display;
-
+        
     wire [3:0] hi0_out;
-
-
-    // module countdown1sec(clock, clear_b, enable, par_load, p_load_in, out);
-    countdown1sec cd0(
+    
+    // module hexdisplayupdatecountdown(clock, clear_b, enable, par_load, p_load_in, out);
+    hexdisplayupdatecountdown cd0(
         .clock(CLOCK_50),
         .clear_b(KEY[0]),
         .enable(1'b1),
-        .par_load(SW[2]),
-        .out(rd0_out)
+        .par_load(par_load)
+        .par_load_data(rd_out_old),
+        .out(rd_out)
     );
 
+
+    
     always @(*)
 	begin
-        if (rd0_out == 0)
-            update_display = 1'b1;
+        if (rd_out == 0) 
+            begin
+                if (!PRESSED_RIGHT_BTN)
+                    END_GAME() # possibly make all displays light up
+                else
+                    rd_out = rd_out_old - 4'b1010;
+                    rd_out_old = rd_out;
+                    par_load = 1'b1;
+                    update_display = 1'b1;
+            end
+            
         else
             update_display = 1'b0;
 	end 
@@ -42,24 +56,63 @@ module fpga_whack_a_mole(CLOCK_50, SW, KEY, LEDR, HEX0, HEX1, HEX2, HEX3);
 
 endmodule
 
-// RateDivider
-module countdown1sec(clock, clear_b, enable, par_load, out);
+// // RateDivider
+// module hexdisplayupdatecountdown(clock, clear_b, enable, par_load, out);
+//     input clock; // wire
+//     input clear_b; // wire
+//     input enable, par_load; // wire
+
+//     output reg [26:0] out;
+
+//     always @(posedge clock) 
+//     begin
+//         if (clear_b == 1'b0) 
+//             out <= 0;
+//         else if (par_load == 1'b1 || out == 0)
+//             out <= 26'b10111110101111000010000000 - 1'b1; 
+//         else if (enable == 1'b1)
+//             out <= out - 1'b1;
+//     end
+// endmodule
+
+module hexdisplayupdatecountdown(clock, clear_b, enable, par_load, par_load_data, out);
     input clock; // wire
     input clear_b; // wire
     input enable, par_load; // wire
 
+    reg [26:0] par_load_data; 
     output reg [26:0] out;
 
     always @(posedge clock) 
     begin
         if (clear_b == 1'b0) 
             out <= 0;
-        else if (par_load == 1'b1 || out == 0)
-            out <= 25'b1011111010111100000111111 - 1'b1; //out <= 26'b10111110101111000010000000 - 1'b1;
+        else if (par_load == 1'b1)
+            out <= par_load_data; //out <= 26'b10111110101111000010000000 - 1'b1;
+            par_load <= 1'b0;
         else if (enable == 1'b1)
             out <= out - 1'b1;
     end
 endmodule
+
+
+// module reactiontimelimitcountdown(clock, clear_b, enable, par_load, par_load_data, out);
+//     input clock; // wire
+//     input clear_b; // wire
+//     input enable, par_load; // wire
+
+//     output reg [26:0] out;
+
+//     always @(posedge clock) 
+//     begin
+//         if (clear_b == 1'b0) 
+//             out <= 0;
+//         else if (par_load == 1'b1)
+//             out <= par_load_data; //out <= 26'b10111110101111000010000000 - 1'b1;
+//         else if (enable == 1'b1)
+//             out <= out - 1'b1;
+//     end
+// endmodule
 
 module random_display(clk, KEY, LEDR, HEX0, HEX1, HEX2, HEX3);
     input clk;
@@ -207,3 +260,4 @@ module hex_decoder(hex_digit, segments);
             default: segments = 7'h7f;
         endcase
 endmodule
+
